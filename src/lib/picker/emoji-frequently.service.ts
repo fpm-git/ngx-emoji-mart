@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { EmojiData } from '@ctrl/ngx-emoji-mart/ngx-emoji';
 
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class EmojiFrequentlyService {
   NAMESPACE = 'emoji-mart';
   frequently: { [key: string]: number } | null = null;

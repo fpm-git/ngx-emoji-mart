@@ -7,7 +7,9 @@ describe('EmojiFrequently', () => {
   beforeEach(
     async(() => {
       localStorage.clear();
-      TestBed.configureTestingModule({}).compileComponents();
+      TestBed.configureTestingModule({
+        providers: [EmojiFrequentlyService, EmojiService],
+      }).compileComponents();
     }),
   );
 

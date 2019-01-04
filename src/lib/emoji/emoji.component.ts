@@ -8,26 +8,18 @@ import {
 } from '@angular/core';
 
 import { EmojiData } from './data/data.interfaces';
-import { DEFAULT_BACKGROUNDFN, EmojiService } from './emoji.service';
+import { EmojiService } from './emoji.service';
 
 export interface Emoji {
-  /** Renders the native unicode emoji */
-  isNative: boolean;
+  native: boolean;
   forceSize: boolean;
   tooltip: boolean;
   skin: 1 | 2 | 3 | 4 | 5 | 6;
   sheetSize: 16 | 20 | 32 | 64;
-  set:
-    | 'apple'
-    | 'google'
-    | 'twitter'
-    | 'emojione'
-    | 'messenger'
-    | 'facebook'
-    | '';
+  set: 'apple' | 'google' | 'twitter' | 'emojione' | 'messenger' | 'facebook' | '';
   size: number;
   emoji: string | EmojiData;
-  backgroundImageFn: (set: string, sheetSize: number) => string;
+  backgroundImageFn: (set: string, sheetSize: Emoji['sheetSize']) => string;
   fallback?: (data: any, props: any) => string;
   emojiOver: EventEmitter<EmojiEvent>;
   emojiLeave: EventEmitter<EmojiEvent>;
@@ -48,10 +40,10 @@ export interface EmojiEvent {
     (mouseleave)="handleLeave($event)"
     [title]="title"
     class="emoji-mart-emoji"
-    [class.emoji-mart-emoji-native]="isNative"
+    [class.emoji-mart-emoji-native]="native"
     [class.emoji-mart-emoji-custom]="custom">
     <span [ngStyle]="style">
-      <ng-template [ngIf]="isNative">{{ unified }}</ng-template>
+      <ng-template [ngIf]="native === true">{{ unified }}</ng-template>
       <ng-content></ng-content>
     </span>
   </span>
@@ -63,15 +55,13 @@ export class EmojiComponent implements OnChanges, Emoji {
   @Input() skin: Emoji['skin'] = 1;
   @Input() set: Emoji['set'] = 'apple';
   @Input() sheetSize: Emoji['sheetSize'] = 64;
-  /** Renders the native unicode emoji */
-  @Input() isNative: Emoji['isNative'] = false;
+  @Input() native: Emoji['native'] = false;
   @Input() forceSize: Emoji['forceSize'] = false;
   @Input() tooltip: Emoji['tooltip'] = false;
   @Input() size: Emoji['size'] = 24;
   @Input() emoji: Emoji['emoji'] = '';
   @Input() fallback?: Emoji['fallback'];
   @Input() hideObsolete = false;
-  @Input() SHEET_COLUMNS = 52;
   @Output() emojiOver: Emoji['emojiOver'] = new EventEmitter();
   @Output() emojiLeave: Emoji['emojiLeave'] = new EventEmitter();
   @Output() emojiClick: Emoji['emojiClick'] = new EventEmitter();
@@ -79,19 +69,24 @@ export class EmojiComponent implements OnChanges, Emoji {
   title = '';
   unified?: string | null;
   custom = false;
+  SHEET_COLUMNS = 52;
   isVisible = true;
   // TODO: replace 4.0.3 w/ dynamic get verison from emoji-datasource in package.json
-  @Input() backgroundImageFn: Emoji['backgroundImageFn'] = DEFAULT_BACKGROUNDFN;
+  @Input()
+  backgroundImageFn: Emoji['backgroundImageFn'] = (set: string, sheetSize: number) =>
+    `https://unpkg.com/emoji-datasource-${this.set}@4.0.4/img/${
+      this.set
+    }/sheets-256/${this.sheetSize}.png`
 
   constructor(private emojiService: EmojiService) {}
 
   ngOnChanges() {
     if (!this.emoji) {
-      return (this.isVisible = false);
+      return this.isVisible = false;
     }
     const data = this.getData();
     if (!data) {
-      return (this.isVisible = false);
+      return this.isVisible = false;
     }
     // const children = this.children;
     this.unified = data.native || null;
@@ -99,16 +94,16 @@ export class EmojiComponent implements OnChanges, Emoji {
       this.custom = data.custom;
     }
     if (!data.unified && !data.custom) {
-      return (this.isVisible = false);
+      return this.isVisible = false;
     }
     if (this.tooltip) {
-      this.title = data.shortNames[0];
+      this.title = data.short_names[0];
     }
-    if (data.obsoletedBy && this.hideObsolete) {
-      return (this.isVisible = false);
+    if (data.obsoleted_by && this.hideObsolete) {
+      return this.isVisible = false;
     }
 
-    if (this.isNative && data.unified && data.native) {
+    if (this.native && data.unified && data.native) {
       // hide older emoji before the split into gendered emoji
       this.style = { fontSize: `${this.size}px` };
 
@@ -126,47 +121,61 @@ export class EmojiComponent implements OnChanges, Emoji {
         backgroundSize: 'contain',
       };
     } else {
-      if (data.hidden.length && data.hidden.includes(this.set)) {
+      let setHasEmoji = true;
+      if (data.hidden && data.hidden.includes(this.set)) {
+        setHasEmoji = true;
+      }
+
+      if (!setHasEmoji) {
         if (this.fallback) {
           this.style = { fontSize: `${this.size}px` };
           this.unified = this.fallback(data, this);
         } else {
-          return (this.isVisible = false);
+          return this.isVisible = false;
         }
       } else {
-        this.style = this.emojiService.emojiSpriteStyles(
-          data.sheet,
-          this.set,
-          this.size,
-          this.sheetSize,
-          this.backgroundImageFn,
-          this.SHEET_COLUMNS,
-        );
+        this.style = {
+          width: `${this.size}px`,
+          height: `${this.size}px`,
+          display: 'inline-block',
+          backgroundImage: `url(${this.backgroundImageFn(
+            this.set,
+            this.sheetSize,
+          )})`,
+          backgroundSize: `${100 * this.SHEET_COLUMNS}%`,
+          backgroundPosition: this.getPosition(),
+        };
       }
     }
-    return (this.isVisible = true);
+    return this.isVisible = true;
+  }
+
+  getPosition() {
+    const [sheet_x, sheet_y] = this.getData()!.sheet;
+    const multiply = 100 / (this.SHEET_COLUMNS - 1);
+    return `${multiply * sheet_x}% ${multiply * sheet_y}%`;
   }
 
   getData() {
     return this.emojiService.getData(this.emoji, this.skin, this.set);
   }
 
-  getSanitizedData(): EmojiData {
-    return this.emojiService.getSanitizedData(this.emoji, this.skin, this.set) as EmojiData;
+  getSanitizedData() {
+    return this.emojiService.getSanitizedData(this.emoji, this.skin, this.set);
   }
 
   handleClick($event: Event) {
-    const emoji = this.getSanitizedData();
+    const emoji = this.getSanitizedData()!;
     this.emojiClick.emit({ emoji, $event });
   }
 
   handleOver($event: Event) {
-    const emoji = this.getSanitizedData();
+    const emoji = this.getSanitizedData()!;
     this.emojiOver.emit({ emoji, $event });
   }
 
   handleLeave($event: Event) {
-    const emoji = this.getSanitizedData();
+    const emoji = this.getSanitizedData()!;
     this.emojiLeave.emit({ emoji, $event });
   }
 }

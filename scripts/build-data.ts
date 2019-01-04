@@ -7,6 +7,7 @@ import * as stringifyObject from 'stringify-object';
 const categories: any[] = [];
 const emojis: any[] = [];
 const skins: any[] = [];
+const short_names: any = {};
 const categoriesIndex: any = {};
 
 const catPairs = [
@@ -63,6 +64,7 @@ function setupSheet(datum: any) {
 
 emojiData.forEach((datum: any) => {
   const category = datum.category;
+  const keywords = [];
   let categoryIndex;
 
   if (!datum.category) {
@@ -105,7 +107,8 @@ emojiData.forEach((datum: any) => {
 
   missingSets(datum);
   if (datum.skin_variations) {
-    datum.skinVariations = Object.keys(datum.skin_variations).map((key) => {
+    const variations = [];
+    for (const key of Object.keys(datum.skin_variations)) {
       const variation = datum.skin_variations[key];
       setupSheet(variation);
       missingSets(variation);
@@ -121,21 +124,12 @@ emojiData.forEach((datum: any) => {
       delete variation.sort_order;
       delete variation.obsoleted_by;
       delete variation.obsoletes;
-      return variation;
-    });
-    delete datum.skin_variations;
+      variations.push(variation);
+    }
+    datum.skin_variations = variations;
   }
 
-  datum.shortNames = datum.short_names.filter((i: any) => i !== datum.short_name);
-  delete datum.short_names;
-
-  // renaming
-  datum.shortName = datum.short_name;
-  delete datum.short_name;
-  if (datum.obsoleted_by) {
-    datum.obsoletedBy = datum.obsoleted_by;
-  }
-  delete datum.obsoleted_by;
+  datum.short_names = datum.short_names.filter((i: any) => i !== datum.short_name);
 
 
   if (datum.text === '') {

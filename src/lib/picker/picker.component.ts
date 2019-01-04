@@ -67,8 +67,7 @@ export class PickerComponent implements OnInit {
   @Input() activeCategories: EmojiCategory[] = [];
   @Input() set: Emoji['set'] = 'apple';
   @Input() skin: Emoji['skin'] = 1;
-  /** Renders the native unicode emoji */
-  @Input() isNative: Emoji['isNative'] = false;
+  @Input() native: Emoji['native'] = false;
   @Input() emojiSize: Emoji['size'] = 24;
   @Input() sheetSize: Emoji['sheetSize'] = 64;
   @Input() emojisToShowFilter?: (x: string) => boolean;
@@ -84,7 +83,6 @@ export class PickerComponent implements OnInit {
   @Input() searchIcons = icons.search;
   @Output() emojiClick = new EventEmitter<any>();
   @Output() emojiSelect = new EventEmitter<any>();
-  @Output() skinChange = new EventEmitter<Emoji['skin']>();
   @ViewChild('scrollRef') private scrollRef!: ElementRef;
   @ViewChild('previewRef') private previewRef!: PreviewComponent;
   @ViewChild('searchRef') private searchRef!: SearchComponent;
@@ -148,7 +146,7 @@ export class PickerComponent implements OnInit {
         return {
           ...emoji,
           // `<Category />` expects emoji to have an `id`.
-          id: emoji.shortNames[0],
+          id: emoji.short_names[0],
           custom: true,
         };
       });
@@ -334,13 +332,27 @@ export class PickerComponent implements OnInit {
     }
 
     if (!this.hideRecent && !this.recent) {
-      this.frequently.add(emoji as EmojiData);
+      this.frequently.add((<EmojiData>emoji));
     }
 
     const component = this.categoryRefs.toArray()[1];
     if (component) {
-      component.getEmojis();
+      component.emojis = this.frequently.get(this.perLine, this.totalFrequentLines);
       component.ref.markForCheck();
+
+      // TODO: decide if this is needed
+      setTimeout(() => {
+        if (!this.scrollRef) {
+          return;
+        }
+        component.memoizeSize();
+        this.updateCategoriesSize();
+        this.handleScroll();
+
+        if (this.SEARCH_CATEGORY.emojis) {
+          component.updateDisplay('none');
+        }
+      });
     }
   }
   handleEmojiOver($event: EmojiEvent) {
@@ -358,7 +370,7 @@ export class PickerComponent implements OnInit {
     this.previewEmoji = $event.emoji;
     clearTimeout(this.leaveTimeout);
   }
-  handleEmojiLeave() {
+  handleEmojiLeave($event: EmojiEvent) {
     if (!this.showPreview || !this.previewRef) {
       return;
     }
@@ -376,6 +388,5 @@ export class PickerComponent implements OnInit {
   handleSkinChange(skin: Emoji['skin']) {
     this.skin = skin;
     localStorage.setItem(`${this.NAMESPACE}.skin`, String(skin));
-    this.skinChange.emit(skin);
   }
 }
